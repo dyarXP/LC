@@ -16,6 +16,37 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.End
 })
 
+-- [[ TAB: DASHBOARD ]]
+Tabs.Dashboard:AddParagraph({
+    Title = "USER PROFILE",
+    Content = string.format("DISPLAY NAME: %s\nUSERNAME: @%s\nUSER ID: %d", LocalPlayer.DisplayName, LocalPlayer.Name, LocalPlayer.UserId)
+})
+
+Tabs.Dashboard:AddParagraph({
+    Title = "DEVELOPER DETAILS",
+    Content = "Developed by: RHDXP\nTikTok: https://tiktok.com/@rhdxp7"
+})
+
+-- [[ ANTI-IDLE LOGIC ]]
+LocalPlayer.Idled:Connect(function()
+    pcall(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(100)
+        pcall(function()
+            if not game:GetService("UserInputService"):GetFocusedTextBox() then
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton1(Vector2.new(0,0))
+            end
+        end)
+    end
+end)
+
 -- [[ MINIMIZE BUTTON ]]
 local MiniUI = Instance.new("ScreenGui")
 local MiniButton = Instance.new("TextButton")
