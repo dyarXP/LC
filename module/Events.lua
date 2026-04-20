@@ -1,27 +1,26 @@
 return function(Tab, Fluent, Window)
     local Options = Fluent.Options
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local LocalPlayer = game:GetService("Players").LocalPlayer
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Knit = require(ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit)
 
-    Tab:AddSection("Event Easter")
-    Tab:AddSlider("EggDelay", { Title = "Collect Delay (s)", Default = 0.1, Min = 0.05, Max = 5, Rounding = 2 })
+    Tab:AddSection("Sales Manager")
+    Tab:AddToggle("SellToggle", {Title = "Enable Auto Sell", Default = false})
+    Tab:AddDropdown("MutationDropdown", { Title = "Filter Mutation", Values = {"NORMAL", "CANDY", "GOLD", "DIAMOND", "VOID"}, Multi = true, Default = {NORMAL = true} })
 
-    local function startFullCycle()
-        local knitServices = ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services
-        while Options.AutoEggToggle.Value do
-            pcall(function()
-                knitServices.RunningService.RF.StartRun:InvokeServer()
-                knitServices.RunningService.RF.StartMove:InvokeServer()
-                for i = 1, 5 do knitServices.EventService.RF.CollectEgg:InvokeServer() end
-                knitServices.RunningService.Collected:InvokeServer("10063799192")
-                knitServices.PlayerService.RF.ReloadCharacter:InvokeServer()
-            end)
-            LocalPlayer.CharacterAdded:Wait()
-            task.wait(Options.EggDelay.Value)
+    task.spawn(function()
+        local SellRF = Knit.Services.InventoryService.RF.SellBrainrot
+        while true do
+            task.wait(2)
+            if Options.SellToggle and Options.SellToggle.Value then
+                local tools = LocalPlayer.Backpack:GetChildren()
+                for _, tool in ipairs(tools) do
+                    local m = tool:GetAttribute("Mutation") or "NORMAL"
+                    if Options.MutationDropdown.Value[m:upper()] then
+                        pcall(function() SellRF:InvokeServer(tool:GetAttribute("EntityId")) end)
+                    end
+                end
+            end
         end
-    end
-
-    Tab:AddToggle("AutoEggToggle", { Title = "Auto Collect Egg", Default = false }):OnChanged(function(state)
-        if state then task.spawn(startFullCycle) end
     end)
 end
