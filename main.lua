@@ -1,4 +1,4 @@
--- [[ RHDXP HUB - FINAL STABLE INTEGRATION ]]
+-- [[ RHDXP HUB - MINIMALIST STABLE LOADER ]]
 local Username = "dyarXP" 
 local Repo = "LC" 
 local Branch = "main"
@@ -7,18 +7,16 @@ local BaseURL = "https://raw.githubusercontent.com/"..Username.."/"..Repo.."/"..
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local UserInputService = game:GetService("UserInputService")
 
--- [[ 1. CREATE WINDOW ]]
+-- [[ 1. CREATE WINDOW (INTERFACE FEATURES REMOVED) ]]
 local Window = Fluent:CreateWindow({
     Title = "RHDXP HUB",
     SubTitle = "Be A Lucky Block",
     TabWidth = 170,
     Size = UDim2.fromOffset(600, 480),
-    Acrylic = true,
-    Theme = "Rose", 
-    MinimizeKey = Enum.KeyCode.End -- Tombol keyboard untuk minimize
+    MinimizeKey = Enum.KeyCode.End -- Tombol keyboard untuk sembunyikan GUI
 })
 
--- [[ 2. LOGO MINIMIZE SYSTEM (DRAGGABLE & SMART DETECT) ]]
+-- [[ 2. FLOATING LOGO SYSTEM (DRAGGABLE) ]]
 local MiniUI = Instance.new("ScreenGui")
 local MiniButton = Instance.new("TextButton")
 local UIStroke = Instance.new("UIStroke")
@@ -45,7 +43,7 @@ UIStroke.Parent = MiniButton
 UICorner.CornerRadius = UDim.new(0, 6)
 UICorner.Parent = MiniButton
 
--- Fungsi Drag agar logo bisa digeser di layar
+-- Fungsi Drag Logo
 local dragging, dragStart, startPos
 MiniButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -65,21 +63,21 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Klik Logo untuk Buka Kembali GUI Utama
+-- Klik Logo untuk Buka Kembali
 MiniButton.MouseButton1Click:Connect(function() 
     if Window then 
         Window:Minimize() 
     end 
 end)
 
--- Logika Deteksi: Munculkan logo jika GUI utama sembunyi atau di luar layar
+-- Logika Deteksi Visibilitas Otomatis
 task.spawn(function()
     while task.wait(0.5) do
         local isVisible = false
         pcall(function()
             if Window and Window.Root then
                 local Main = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
-                -- Fluent memindahkan GUI ke Y > 2000 saat diminimize
+                -- Jika GUI tidak di layar atau posisinya dibuang ke bawah oleh Fluent
                 if Main and Main.Visible == true and Main.AbsolutePosition.Y < 2000 then
                     isVisible = true
                 end
@@ -102,8 +100,8 @@ local Tabs = {
 
 -- [[ 4. DASHBOARD CONTENT ]]
 Tabs.Dashboard:AddParagraph({
-    Title = "WELCOME TO RHDXP HUB",
-    Content = "Halo, " .. game.Players.LocalPlayer.DisplayName .. "!\nScript berhasil dimuat secara modular.\n\nTikTok: @RHDXP7"
+    Title = "RHDXP HUB",
+    Content = "Selamat datang, " .. game.Players.LocalPlayer.DisplayName .. "!\nInterface telah disederhanakan untuk stabilitas.\n\nTikTok: @RHDXP7"
 })
 
 -- [[ 5. MODULE LOADER ENGINE ]]
@@ -123,18 +121,13 @@ local function LoadModule(FileName, TabObject)
                 end)
                 if not s then warn("Error Modul [" .. FileName .. "]: " .. e) end
             end)
-        else
-            warn("Syntax Error [" .. FileName .. "]: " .. err)
         end
-    else
-        warn("Gagal download: " .. FileName)
     end
 end
 
 -- [[ 6. EXECUTE LOADING ]]
 task.spawn(function()
     task.wait(1)
-    -- Pastikan nama file di GitHub sama persis (Case Sensitive)
     LoadModule("Automation", Tabs.Farm)
     LoadModule("Upgrades", Tabs.Upgrades)
     LoadModule("Sell", Tabs.Sell)
@@ -142,7 +135,7 @@ task.spawn(function()
     LoadModule("Events", Tabs.Events)
     LoadModule("Misc", Tabs.Misc)
     
-    Fluent:Notify({Title = "RHDXP HUB", Content = "Semua modul berhasil dimuat!", Duration = 5})
+    Fluent:Notify({Title = "RHDXP HUB", Content = "Semua modul siap!", Duration = 5})
 end)
 
 Window:SelectTab(1)
