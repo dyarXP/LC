@@ -1,58 +1,49 @@
 return function(Tab, Fluent, Window)
-    local Options = Fluent.Options -- Pastikan ini ada agar tidak error 'Expected identifier'
+    local Options = Fluent.Options
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local LocalPlayer = game:GetService("Players").LocalPlayer
-    
-    local isEgg = false
-    Tab:AddSection("Event Easter")
 
-    Tab:AddSlider("EggDelay", {
-        Title = "Collect Delay (Seconds)",
-        Default = 0.1,
-        Min = 0.05,
-        Max = 5,
-        Rounding = 2
+    -- [[ UI SECTION ]]
+    local EventSec = Tab:AddSection("Event Manager")
+
+    Tab:AddParagraph({
+        Title = "Event Status",
+        Content = "Mencari event aktif di server..."
     })
 
-    local function startFullCycle()
-        -- Mengambil path Knit secara dinamis di dalam fungsi agar aman
-        local knitPath = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit")
-        local knitServices = knitPath:WaitForChild("Services")
-        
-        local runningRF = knitServices:WaitForChild("RunningService"):WaitForChild("RF")
-        local eventRF = knitServices:WaitForChild("EventService"):WaitForChild("RF")
-        local playerRF = knitServices:WaitForChild("PlayerService"):WaitForChild("RF")
+    Tab:AddToggle("AutoClaimEv", {
+        Title = "Auto Claim Event Rewards",
+        Default = false
+    })
 
-        while isEgg do
-            pcall(function()
-                runningRF.StartRun:InvokeServer()
-                runningRF.StartMove:InvokeServer()
+    Tab:AddToggle("AutoCollectEv", {
+        Title = "Auto Collect Drops",
+        Default = false
+    })
 
-                for i = 1, 5 do
-                    if not isEgg then break end
-                    eventRF.CollectEgg:InvokeServer()
+    -- [[ LOGIC SECTION ]]
+    local function GetRemote(name)
+        local success, res = pcall(function()
+            local index = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index")
+            for _, v in ipairs(index:GetChildren()) do
+                if v.Name:find("knit") then
+                    local services = v.knit.Services
+                    local s = services:FindFirstChild("EventService") or services:FindFirstChild("SeasonService")
+                    return s and s.RF:FindFirstChild(name)
                 end
-
-                local collectArgs = {"10063799192"}
-                runningRF.Collected:InvokeServer(unpack(collectArgs))
-                playerRF.ReloadCharacter:InvokeServer()
-            end)
-            
-            -- Menunggu character baru muncul sebelum lanjut loop
-            LocalPlayer.CharacterAdded:Wait()
-            
-            -- Menggunakan task.wait yang aman dari slider
-            task.wait(Options.EggDelay.Value)
-        end
+            end
+        end)
+        return success and res or nil
     end
 
-    Tab:AddToggle("AutoEggToggle", { 
-        Title = "Auto Collect Egg", 
-        Default = false 
-    }):OnChanged(function(state)
-        isEgg = state
-        if state then 
-            task.spawn(startFullCycle) 
+    task.spawn(function()
+        while true do
+            task.wait(5)
+            if not Options.AutoClaimEv then break end
+
+            if Options.AutoClaimEv.Value then
+                local remote = GetRemote("ClaimReward") or GetRemote("Claim")
+                if remote then pcall(function() remote:InvokeServer() end) end
+            end
         end
     end)
 end
