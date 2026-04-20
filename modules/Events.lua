@@ -1,49 +1,80 @@
 return function(Tab, Fluent, Window)
     local Options = Fluent.Options
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    
+    local isEgg = false
 
-    -- [[ UI SECTION ]]
-    local EventSec = Tab:AddSection("Event Manager")
+    -- [[ 1. UI SECTION ]]
+    local EventSec = Tab:AddSection("Event Easter")
 
-    Tab:AddParagraph({
-        Title = "Event Status",
-        Content = "Mencari event aktif di server..."
+    Tab:AddSlider("EggDelay", {
+        Title = "Collect Delay (Seconds)",
+        Default = 0.1,
+        Min = 0.05,
+        Max = 5,
+        Rounding = 2
     })
 
-    Tab:AddToggle("AutoClaimEv", {
-        Title = "Auto Claim Event Rewards",
-        Default = false
-    })
-
-    Tab:AddToggle("AutoCollectEv", {
-        Title = "Auto Collect Drops",
-        Default = false
-    })
-
-    -- [[ LOGIC SECTION ]]
-    local function GetRemote(name)
-        local success, res = pcall(function()
-            local index = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index")
-            for _, v in ipairs(index:GetChildren()) do
+    -- [[ 2. LOGIC SECTION ]]
+    local function startFullCycle()
+        -- Mencari Knit Services secara dinamis (Anti-Update)
+        local knitServices
+        pcall(function()
+            local packages = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index")
+            for _, v in ipairs(packages:GetChildren()) do
                 if v.Name:find("knit") then
-                    local services = v.knit.Services
-                    local s = services:FindFirstChild("EventService") or services:FindFirstChild("SeasonService")
-                    return s and s.RF:FindFirstChild(name)
+                    knitServices = v.knit.Services
+                    break
                 end
             end
         end)
-        return success and res or nil
+
+        if not knitServices then
+            return Fluent:Notify({Title = "Error", Content = "Knit Services tidak ditemukan!", Duration = 5})
+        end
+
+        local runningRF = knitServices:WaitForChild("RunningService"):WaitForChild("RF")
+        local eventRF = knitServices:WaitForChild("EventService"):WaitForChild("RF")
+        local playerRF = knitServices:WaitForChild("PlayerService"):WaitForChild("RF")
+
+        while isEgg do
+            pcall(function()
+                -- Memulai Run
+                runningRF.StartRun:InvokeServer()
+                runningRF.StartMove:InvokeServer()
+
+                -- Collect Egg Loop
+                for i = 1, 5 do
+                    if not isEgg then break end
+                    eventRF.CollectEgg:InvokeServer()
+                end
+
+                -- Selesaikan Run & Reset
+                local collectArgs = {"10063799192"}
+                runningRF.Collected:InvokeServer(unpack(collectArgs))
+                playerRF.ReloadCharacter:InvokeServer()
+            end)
+
+            -- Menunggu karakter spawn kembali sebelum lanjut loop
+            LocalPlayer.CharacterAdded:Wait()
+            
+            -- Delay agar tidak terkena ban/kick
+            local delayTime = (Options.EggDelay and Options.EggDelay.Value) or 0.1
+            task.wait(delayTime)
+        end
     end
 
-    task.spawn(function()
-        while true do
-            task.wait(5)
-            if not Options.AutoClaimEv then break end
-
-            if Options.AutoClaimEv.Value then
-                local remote = GetRemote("ClaimReward") or GetRemote("Claim")
-                if remote then pcall(function() remote:InvokeServer() end) end
-            end
+    -- [[ 3. TOGGLE UI ]]
+    Tab:AddToggle("AutoEggToggle", { 
+        Title = "Auto Collect Egg", 
+        Default = false 
+    }):OnChanged(function(state)
+        isEgg = state
+        if state then 
+            task.spawn(startFullCycle) 
+            Fluent:Notify({Title = "RHDXP Hub", Content = "Auto Egg Started!", Duration = 2})
         end
     end)
 end
