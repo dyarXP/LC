@@ -16,16 +16,14 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.End
 })
 
--- [[ 3. MINIMIZE SYSTEM (FLOATING BUTTON) ]]
-local UserInputService = game:GetService("UserInputService")
+-- [[ FLOATING MINIMIZE BUTTON ]]
 local MiniUI = Instance.new("ScreenGui")
 local MiniButton = Instance.new("TextButton")
 local UIStroke = Instance.new("UIStroke")
 local UICorner = Instance.new("UICorner")
 
-local ProtectGui = gethui or function() return game:GetService("CoreGui") end
 MiniUI.Name = "RHDXP_Minimize"
-MiniUI.Parent = ProtectGui()
+MiniUI.Parent = (gethui or function() return game:GetService("CoreGui") end)()
 MiniUI.Enabled = false
 
 MiniButton.Name = "FloatingIcon"
@@ -44,21 +42,6 @@ UIStroke.Parent = MiniButton
 UICorner.CornerRadius = UDim.new(0, 4)
 UICorner.Parent = MiniButton
 
--- Draggable Logic
-local dragging, dragStart, startPos
-MiniButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true dragStart = input.Position startPos = MiniButton.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        MiniButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
 MiniButton.MouseButton1Click:Connect(function() 
     MiniUI.Enabled = false 
     if Window.Root then Window.Root.Visible = true end
@@ -69,51 +52,44 @@ task.spawn(function()
         if Window.Root then
             local MainFrame = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
             local isHidden = (Window.Root.Visible == false) or (MainFrame and MainFrame.Visible == false)
-            if isHidden then MiniUI.Enabled = true else MiniUI.Enabled = false end
+            MiniUI.Enabled = isHidden
         end
     end
 end)
 
--- [[ TABS DEFINITION ]]
+-- [[ TABS ]]
 local Tabs = {
     Dashboard = Window:AddTab({ Title = "DASHBOARD", Icon = "layout-grid" }),
     Farm = Window:AddTab({ Title = "AUTOMATION", Icon = "cpu" }),
     Misc = Window:AddTab({ Title = "MISC", Icon = "settings" })
 }
 
--- [[ MODULE LOADER ENGINE ]]
+-- [[ SECURE MODULE LOADER ]]
 local function LoadModule(FileName, TabObject)
     local targetURL = BaseURL .. "modules/" .. FileName .. ".lua"
     local success, content = pcall(function() return game:HttpGet(targetURL) end)
-
+    
     if success and content then
         local func, err = loadstring(content)
         if func then
-            local moduleStatus, moduleErr = pcall(function()
-                -- Mengirimkan variabel penting ke dalam modul
-                func()(TabObject, Fluent, Window)
+            task.spawn(function()
+                local s, e = pcall(function() func()(TabObject, Fluent, Window) end)
+                if not s then warn("CRASH DI MODUL " .. FileName .. ": " .. e) end
             end)
-            if not moduleStatus then warn("Runtime Error in " .. FileName .. ": " .. tostring(moduleErr)) end
         else
-            warn("Syntax Error in " .. FileName .. ": " .. tostring(err))
+            warn("SYNTAX ERROR DI " .. FileName .. ": " .. err)
         end
     else
-        warn("Failed to download module: " .. FileName)
+        warn("FILE TIDAK DITEMUKAN: " .. targetURL)
     end
 end
 
--- [[ DASHBOARD INFO ]]
-Tabs.Dashboard:AddParagraph({
-    Title = "RHDXP HUB ONLINE",
-    Content = "User: " .. game.Players.LocalPlayer.DisplayName .. "\nStatus: Premium\n\nSelamat menggunakan!"
-})
+-- [[ START UP ]]
+Tabs.Dashboard:AddParagraph({Title = "RHDXP HUB", Content = "Halo, "..game.Players.LocalPlayer.DisplayName.."\nTikTok: @RHDXP7"})
 
--- [[ START LOADING ]]
 task.spawn(function()
-    task.wait(0.5) -- Safety delay agar Fluent siap
+    task.wait(1) -- Delay biar Fluent siap total
     LoadModule("Automation", Tabs.Farm)
     LoadModule("Misc", Tabs.Misc)
-    
     Window:SelectTab(1)
-    Fluent:Notify({ Title = "RHDXP HUB", Content = "Semua modul berhasil dimuat!", Duration = 5 })
 end)
