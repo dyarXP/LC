@@ -3,12 +3,24 @@ return function(Tab, Fluent, Window)
     local LocalPlayer = game:GetService("Players").LocalPlayer
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-    local function GetRemote(serviceName, remoteName)
-        for _, v in ipairs(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):GetChildren()) do
-            if v.Name:find("sleitnick_knit") then
-                local s = v:FindFirstChild("knit") and v.knit:FindFirstChild("Services")
-                if s and s:FindFirstChild(serviceName) then
-                    return s[serviceName].RF:FindFirstChild(remoteName)
+    -- [[ AUTO-PATH FINDER ]]
+    local function GetSellRemote()
+        -- Mencari folder Knit secara dinamis
+        local packages = ReplicatedStorage:FindFirstChild("Packages")
+        if not packages then return nil end
+        
+        local index = packages:FindFirstChild("_Index")
+        if not index then return nil end
+
+        for _, v in ipairs(index:GetChildren()) do
+            if v.Name:find("knit") then
+                local services = v:FindFirstChild("knit") and v.knit:FindFirstChild("Services")
+                if services then
+                    -- Cek InventoryService atau BrainrotService (tergantung update game)
+                    local inv = services:FindFirstChild("InventoryService") or services:FindFirstChild("BrainrotService")
+                    if inv and inv:FindFirstChild("RF") then
+                        return inv.RF:FindFirstChild("SellBrainrot") or inv.RF:FindFirstChild("Sell")
+                    end
                 end
             end
         end
@@ -18,7 +30,12 @@ return function(Tab, Fluent, Window)
     local SellSec = Tab:AddSection("Sales Manager")
 
     Tab:AddToggle("SellToggle", {Title = "Enable Auto Sell", Default = false})
-    Tab:AddDropdown("MutationDropdown", { Title = "Filter Mutation", Values = {"NORMAL", "CANDY", "GOLD", "DIAMOND", "VOID"}, Multi = true, Default = {NORMAL = true} })
+    Tab:AddDropdown("MutationDropdown", { 
+        Title = "Filter Mutation", 
+        Values = {"NORMAL", "CANDY", "GOLD", "DIAMOND", "VOID"}, 
+        Multi = true, 
+        Default = {NORMAL = true} 
+    })
     Tab:AddSlider("SellSlider", {Title = "Scan Delay (s)", Default = 2, Min = 0.5, Max = 10, Rounding = 1})
 
     task.spawn(function()
@@ -27,20 +44,42 @@ return function(Tab, Fluent, Window)
             task.wait(math.max(delay, 0.5))
 
             if Options.SellToggle and Options.SellToggle.Value then
-                local remote = GetRemote("InventoryService", "SellBrainrot")
-                if not remote then continue end
+                local remote = GetSellRemote()
+                
+                if not remote then
+                    -- Kalau remote tidak ketemu, kasih tau lewat notifikasi (hanya sekali)
+                    Fluent:Notify({
+                        Title = "RHDXP Hub Error",
+                        Content = "Remote Sell tidak ditemukan! Game mungkin update.",
+                        Duration = 3
+                    })
+                    task.wait(5) -- Jeda lebih lama agar tidak spam notif
+                    continue
+                end
 
+                -- Ambil semua item
                 local tools = {}
-                for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do if item:IsA("Tool") then table.insert(tools, item) end end
-                if LocalPlayer.Character then for _, item in ipairs(LocalPlayer.Character:GetChildren()) do if item:IsA("Tool") then table.insert(tools, item) end end end
+                for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do 
+                    if item:IsA("Tool") then table.insert(tools, item) end 
+                end
+                if LocalPlayer.Character then 
+                    for _, item in ipairs(LocalPlayer.Character:GetChildren()) do 
+                        if item:IsA("Tool") then table.insert(tools, item) end 
+                    end 
+                end
 
+                -- Proses Jual
                 for _, tool in ipairs(tools) do
                     if not Options.SellToggle.Value then break end
-                    local m = tool:GetAttribute("Mutation") or "NORMAL"
-                    local id = tool:GetAttribute("EntityId")
                     
-                    if id and Options.MutationDropdown.Value[m:upper()] then 
-                        pcall(function() remote:InvokeServer(id) end) 
+                    -- Deteksi Mutasi & ID
+                    local mutation = tool:GetAttribute("Mutation") or "NORMAL"
+                    local entityId = tool:GetAttribute("EntityId") or tool:GetAttribute("ID")
+                    
+                    if entityId and Options.MutationDropdown.Value[mutation:upper()] then 
+                        pcall(function() 
+                            remote:InvokeServer(entityId) 
+                        end) 
                     end
                 end
             end
