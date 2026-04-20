@@ -1,4 +1,4 @@
--- [[ RHDXP HUB - MINIMALIST STABLE LOADER ]]
+-- [[ RHDXP HUB - FINAL STABLE INTEGRATED ]]
 local Username = "dyarXP" 
 local Repo = "LC" 
 local Branch = "main"
@@ -7,7 +7,7 @@ local BaseURL = "https://raw.githubusercontent.com/"..Username.."/"..Repo.."/"..
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local UserInputService = game:GetService("UserInputService")
 
--- [[ 1. CREATE WINDOW (INTERFACE FEATURES REMOVED) ]]
+-- [[ 1. CREATE WINDOW ]]
 local Window = Fluent:CreateWindow({
     Title = "RHDXP HUB",
     SubTitle = "Be A Lucky Block",
@@ -16,29 +16,30 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.End -- Tombol keyboard untuk sembunyikan GUI
 })
 
--- [[ 2. FLOATING LOGO SYSTEM (DRAGGABLE) ]]
+-- [[ 2. FLOATING LOGO SYSTEM (FORCE ENABLED & DRAGGABLE) ]]
 local MiniUI = Instance.new("ScreenGui")
 local MiniButton = Instance.new("TextButton")
 local UIStroke = Instance.new("UIStroke")
 local UICorner = Instance.new("UICorner")
 
-MiniUI.Name = "RHDXP_Minimize"
+MiniUI.Name = "RHDXP_RECOVERY_UI"
 MiniUI.Parent = (gethui or function() return game:GetService("CoreGui") end)()
 MiniUI.Enabled = false 
-MiniUI.DisplayOrder = 999
+MiniUI.DisplayOrder = 9999
 
 MiniButton.Name = "FloatingIcon"
 MiniButton.Parent = MiniUI
-MiniButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MiniButton.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
 MiniButton.Position = UDim2.new(0.05, 0, 0.4, 0)
-MiniButton.Size = UDim2.new(0, 70, 0, 30)
+MiniButton.Size = UDim2.new(0, 75, 0, 30)
 MiniButton.Text = "RHDXP"
 MiniButton.TextColor3 = Color3.fromRGB(0, 255, 255)
 MiniButton.Font = Enum.Font.Code
-MiniButton.TextSize = 14
+MiniButton.TextSize = 15
+MiniButton.ZIndex = 10000
 
 UIStroke.Color = Color3.fromRGB(0, 255, 255)
-UIStroke.Thickness = 1.5
+UIStroke.Thickness = 2
 UIStroke.Parent = MiniButton
 UICorner.CornerRadius = UDim.new(0, 6)
 UICorner.Parent = MiniButton
@@ -50,9 +51,6 @@ MiniButton.InputBegan:Connect(function(input)
         dragging = true 
         dragStart = input.Position 
         startPos = MiniButton.Position
-        input.Changed:Connect(function() 
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end 
-        end)
     end
 end)
 
@@ -63,6 +61,12 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+MiniButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
 -- Klik Logo untuk Buka Kembali
 MiniButton.MouseButton1Click:Connect(function() 
     if Window then 
@@ -70,20 +74,31 @@ MiniButton.MouseButton1Click:Connect(function()
     end 
 end)
 
--- Logika Deteksi Visibilitas Otomatis
+-- LOGIKA MONITORING AGRESSIVE (Deteksi jika GUI utama sembunyi)
 task.spawn(function()
-    while task.wait(0.5) do
-        local isVisible = false
+    while true do
+        task.wait(0.3)
+        local shouldShowLogo = false
+        
         pcall(function()
             if Window and Window.Root then
                 local Main = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
-                -- Jika GUI tidak di layar atau posisinya dibuang ke bawah oleh Fluent
-                if Main and Main.Visible == true and Main.AbsolutePosition.Y < 2000 then
-                    isVisible = true
+                
+                -- Jika Main Frame tidak terlihat atau dibuang ke bawah layar (Minimize)
+                if Main then
+                    if Main.Visible == false or Main.AbsolutePosition.Y > 2000 then
+                        shouldShowLogo = true
+                    end
                 end
             end
+            
+            -- Tampilkan/Sembunyikan Logo
+            MiniUI.Enabled = shouldShowLogo
+            
+            -- Proteksi Parent agar tidak dihapus sistem
+            local target = (gethui or function() return game:GetService("CoreGui") end)()
+            if MiniUI.Parent ~= target then MiniUI.Parent = target end
         end)
-        MiniUI.Enabled = not isVisible
     end
 end)
 
@@ -98,10 +113,10 @@ local Tabs = {
     Misc      = Window:AddTab({ Title = "MISC", Icon = "settings" })
 }
 
--- [[ 4. DASHBOARD CONTENT ]]
+-- [[ 4. DASHBOARD ]]
 Tabs.Dashboard:AddParagraph({
     Title = "RHDXP HUB",
-    Content = "Selamat datang, " .. game.Players.LocalPlayer.DisplayName .. "!\nInterface telah disederhanakan untuk stabilitas.\n\nTikTok: @RHDXP7"
+    Content = "Halo, " .. game.Players.LocalPlayer.DisplayName .. "!\nInterface dibersihkan untuk fungsi Minimize yang lebih stabil.\n\nTikTok: @RHDXP7"
 })
 
 -- [[ 5. MODULE LOADER ENGINE ]]
@@ -135,7 +150,11 @@ task.spawn(function()
     LoadModule("Events", Tabs.Events)
     LoadModule("Misc", Tabs.Misc)
     
-    Fluent:Notify({Title = "RHDXP HUB", Content = "Semua modul siap!", Duration = 5})
+    Fluent:Notify({
+        Title = "RHDXP HUB",
+        Content = "Semua modul berhasil dimuat!",
+        Duration = 5
+    })
 end)
 
 Window:SelectTab(1)
