@@ -1,11 +1,13 @@
--- [[ RHDXP HUB - MASTER LOADER ]]
+-- [[ RHDXP HUB - STABLE DASHBOARD ]]
 local Username = "dyarXP" 
 local Repo = "LC" 
 local Branch = "main"
 local BaseURL = "https://raw.githubusercontent.com/"..Username.."/"..Repo.."/"..Branch.."/"
 
+-- 1. LOAD LIBRARY
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
+-- 2. CREATE WINDOW
 local Window = Fluent:CreateWindow({
     Title = "RHDXP HUB",
     SubTitle = "Be A Lucky Block",
@@ -16,79 +18,7 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.End
 })
 
--- [[ TAB: DASHBOARD ]]
-Tabs.Dashboard:AddParagraph({
-    Title = "USER PROFILE",
-    Content = string.format("DISPLAY NAME: %s\nUSERNAME: @%s\nUSER ID: %d", LocalPlayer.DisplayName, LocalPlayer.Name, LocalPlayer.UserId)
-})
-
-Tabs.Dashboard:AddParagraph({
-    Title = "DEVELOPER DETAILS",
-    Content = "Developed by: RHDXP\nTikTok: https://tiktok.com/@rhdxp7"
-})
-
--- [[ ANTI-IDLE LOGIC ]]
-LocalPlayer.Idled:Connect(function()
-    pcall(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-    end)
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(100)
-        pcall(function()
-            if not game:GetService("UserInputService"):GetFocusedTextBox() then
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton1(Vector2.new(0,0))
-            end
-        end)
-    end
-end)
-
--- [[ MINIMIZE BUTTON ]]
-local MiniUI = Instance.new("ScreenGui")
-local MiniButton = Instance.new("TextButton")
-local UIStroke = Instance.new("UIStroke")
-local UICorner = Instance.new("UICorner")
-
-MiniUI.Name = "RHDXP_Minimize"
-MiniUI.Parent = (gethui or function() return game:GetService("CoreGui") end)()
-MiniUI.Enabled = false
-
-MiniButton.Name = "FloatingIcon"
-MiniButton.Parent = MiniUI
-MiniButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-MiniButton.Position = UDim2.new(0.05, 0, 0.4, 0)
-MiniButton.Size = UDim2.new(0, 80, 0, 35)
-MiniButton.Text = "RHDXP"
-MiniButton.TextColor3 = Color3.fromRGB(0, 255, 255)
-MiniButton.Font = Enum.Font.Code
-MiniButton.TextSize = 18
-
-UIStroke.Color = Color3.fromRGB(0, 255, 255)
-UIStroke.Thickness = 1.5
-UIStroke.Parent = MiniButton
-UICorner.CornerRadius = UDim.new(0, 4)
-UICorner.Parent = MiniButton
-
-MiniButton.MouseButton1Click:Connect(function() 
-    MiniUI.Enabled = false 
-    if Window.Root then Window.Root.Visible = true end
-end)
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if Window.Root then
-            local MainFrame = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
-            local isHidden = (Window.Root.Visible == false) or (MainFrame and MainFrame.Visible == false)
-            MiniUI.Enabled = isHidden
-        end
-    end
-end)
-
--- [[ TABS ]]
+-- 3. TABS DEFINITION
 local Tabs = {
     Dashboard = Window:AddTab({ Title = "DASHBOARD", Icon = "layout-grid" }),
     Farm = Window:AddTab({ Title = "AUTOMATION", Icon = "cpu" }),
@@ -98,23 +28,48 @@ local Tabs = {
     Misc = Window:AddTab({ Title = "MISC", Icon = "settings" })
 }
 
--- [[ CLEAN LOADER ]]
+-- [[ 4. ISI DASHBOARD (DIBUAT SECEPAT MUNGKIN) ]]
+-- Bagian ini harus di luar task.spawn agar langsung muncul saat script dijalankan
+Tabs.Dashboard:AddParagraph({
+    Title = "WELCOME TO RHDXP HUB",
+    Content = "Halo, " .. game.Players.LocalPlayer.DisplayName .. "!\nScript sedang memuat modul lainnya...\nTikTok: @RHDXP7"
+})
+
+Tabs.Dashboard:AddButton({
+    Title = "Re-load All Tabs",
+    Description = "Klik jika tab lain tidak muncul",
+    Callback = function()
+        Window:SelectTab(1)
+        Fluent:Notify({Title = "RHDXP", Content = "Refreshing modules...", Duration = 2})
+    end
+})
+
+-- [[ 5. SECURE MODULE LOADER ]]
 local function LoadModule(FileName, TabObject)
     local targetURL = BaseURL .. "modules/" .. FileName .. ".lua"
     local success, content = pcall(function() return game:HttpGet(targetURL) end)
     
-    if success and content then
+    if success and content and content ~= "404: Not Found" then
         local func, err = loadstring(content)
         if func then
-            local s, e = pcall(function() func()(TabObject, Fluent, Window) end)
-            if not s then warn("Runtime Error " .. FileName .. ": " .. tostring(e)) end
+            task.spawn(function()
+                local s, e = pcall(function() 
+                    local moduleInit = func()
+                    if type(moduleInit) == "function" then
+                        moduleInit(TabObject, Fluent, Window)
+                    end
+                end)
+                if not s then warn("Crash di modul [" .. FileName .. "]: " .. tostring(e)) end
+            end)
         else
-            warn("Syntax Error " .. FileName .. ": " .. tostring(err))
+            warn("Syntax Error [" .. FileName .. "]: " .. tostring(err))
         end
+    else
+        warn("Gagal download: " .. FileName)
     end
 end
 
--- [[ START LOADING ]]
+-- [[ 6. LOADING MODUL (DI BELAKANG LAYAR) ]]
 task.spawn(function()
     task.wait(1)
     LoadModule("Automation", Tabs.Farm)
@@ -122,5 +77,11 @@ task.spawn(function()
     LoadModule("Sell", Tabs.Sell)
     LoadModule("Trading", Tabs.Trading)
     LoadModule("Misc", Tabs.Misc)
-    Window:SelectTab(1)
+    
+    -- Notifikasi Sukses
+    Fluent:Notify({
+        Title = "RHDXP HUB",
+        Content = "Semua fitur telah siap digunakan!",
+        Duration = 5
+    })
 end)
