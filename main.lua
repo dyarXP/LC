@@ -16,14 +16,16 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.End
 })
 
--- [[ MINIMIZE SYSTEM ]]
+-- [[ 3. MINIMIZE SYSTEM (FLOATING BUTTON) ]]
+local UserInputService = game:GetService("UserInputService")
 local MiniUI = Instance.new("ScreenGui")
 local MiniButton = Instance.new("TextButton")
 local UIStroke = Instance.new("UIStroke")
 local UICorner = Instance.new("UICorner")
 
+local ProtectGui = gethui or function() return game:GetService("CoreGui") end
 MiniUI.Name = "RHDXP_Minimize"
-MiniUI.Parent = (gethui or function() return game:GetService("CoreGui") end)()
+MiniUI.Parent = ProtectGui()
 MiniUI.Enabled = false
 
 MiniButton.Name = "FloatingIcon"
@@ -42,6 +44,21 @@ UIStroke.Parent = MiniButton
 UICorner.CornerRadius = UDim.new(0, 4)
 UICorner.Parent = MiniButton
 
+-- Draggable Logic
+local dragging, dragStart, startPos
+MiniButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true dragStart = input.Position startPos = MiniButton.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MiniButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
 MiniButton.MouseButton1Click:Connect(function() 
     MiniUI.Enabled = false 
     if Window.Root then Window.Root.Visible = true end
@@ -51,40 +68,52 @@ task.spawn(function()
     while task.wait(0.5) do
         if Window.Root then
             local MainFrame = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
-            if (Window.Root.Visible == false) or (MainFrame and MainFrame.Visible == false) then
-                MiniUI.Enabled = true
-            else
-                MiniUI.Enabled = false
-            end
+            local isHidden = (Window.Root.Visible == false) or (MainFrame and MainFrame.Visible == false)
+            if isHidden then MiniUI.Enabled = true else MiniUI.Enabled = false end
         end
     end
 end)
 
--- [[ TABS ]]
+-- [[ TABS DEFINITION ]]
 local Tabs = {
     Dashboard = Window:AddTab({ Title = "DASHBOARD", Icon = "layout-grid" }),
     Farm = Window:AddTab({ Title = "AUTOMATION", Icon = "cpu" }),
     Misc = Window:AddTab({ Title = "MISC", Icon = "settings" })
 }
 
--- [[ MODULAR LOADER ]]
+-- [[ MODULE LOADER ENGINE ]]
 local function LoadModule(FileName, TabObject)
-    local success, content = pcall(function() return game:HttpGet(BaseURL .. "modules/" .. FileName .. ".lua") end)
+    local targetURL = BaseURL .. "modules/" .. FileName .. ".lua"
+    local success, content = pcall(function() return game:HttpGet(targetURL) end)
+
     if success and content then
         local func, err = loadstring(content)
         if func then
-            local s, e = pcall(function() func()(TabObject, Fluent, Window) end)
-            if not s then warn("Runtime Error " .. FileName .. ": " .. tostring(e)) end
+            local moduleStatus, moduleErr = pcall(function()
+                -- Mengirimkan variabel penting ke dalam modul
+                func()(TabObject, Fluent, Window)
+            end)
+            if not moduleStatus then warn("Runtime Error in " .. FileName .. ": " .. tostring(moduleErr)) end
         else
-            warn("Syntax Error " .. FileName .. ": " .. tostring(err))
+            warn("Syntax Error in " .. FileName .. ": " .. tostring(err))
         end
+    else
+        warn("Failed to download module: " .. FileName)
     end
 end
 
-Tabs.Dashboard:AddParagraph({Title = "WELCOME", Content = "User: "..game.Players.LocalPlayer.Name.."\nTikTok: @RHDXP7"})
+-- [[ DASHBOARD INFO ]]
+Tabs.Dashboard:AddParagraph({
+    Title = "RHDXP HUB ONLINE",
+    Content = "User: " .. game.Players.LocalPlayer.DisplayName .. "\nStatus: Premium\n\nSelamat menggunakan!"
+})
 
+-- [[ START LOADING ]]
 task.spawn(function()
+    task.wait(0.5) -- Safety delay agar Fluent siap
     LoadModule("Automation", Tabs.Farm)
     LoadModule("Misc", Tabs.Misc)
+    
     Window:SelectTab(1)
+    Fluent:Notify({ Title = "RHDXP HUB", Content = "Semua modul berhasil dimuat!", Duration = 5 })
 end)
