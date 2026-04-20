@@ -1,6 +1,7 @@
 -- [[ RHDXP HUB - MASTER LOADER FINAL ]]
 -- DEVELOPER: RHDXP (@RHDXP7)
 -- REPO: dyarXP/LC
+-- STATUS: STABLE & MODULAR
 
 local Username = "dyarXP" 
 local Repo = "LC" 
@@ -28,8 +29,10 @@ local MiniButton = Instance.new("TextButton")
 local UIStroke = Instance.new("UIStroke")
 local UICorner = Instance.new("UICorner")
 
+-- Proteksi GUI agar aman dari deteksi dasar executor
+local ProtectGui = gethui or function() return game:GetService("CoreGui") end
 MiniUI.Name = "RHDXP_Minimize"
-MiniUI.Parent = game:GetService("CoreGui")
+MiniUI.Parent = ProtectGui()
 MiniUI.Enabled = false
 
 MiniButton.Name = "FloatingIcon"
@@ -48,12 +51,18 @@ UIStroke.Parent = MiniButton
 UICorner.CornerRadius = UDim.new(0, 4)
 UICorner.Parent = MiniButton
 
--- Draggable Logic for Minimize Button
+-- Draggable Logic (Sistem Seret Tombol agar bisa dipindah)
 local dragging, dragStart, startPos
 MiniButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true dragStart = input.Position startPos = MiniButton.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        dragging = true 
+        dragStart = input.Position 
+        startPos = MiniButton.Position
+        input.Changed:Connect(function() 
+            if input.UserInputState == Enum.UserInputState.End then 
+                dragging = false 
+            end 
+        end)
     end
 end)
 
@@ -64,19 +73,30 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Click Logic: Membuka Kembali Window
+-- Click Logic: Membuka kembali menu utama saat Logo diklik
 MiniButton.MouseButton1Click:Connect(function() 
     MiniUI.Enabled = false 
-    Window:Minimize() 
+    if Window.Root then
+        Window.Root.Visible = true
+        -- Memastikan Frame utama Fluent muncul kembali
+        local MainFrame = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
+        if MainFrame then MainFrame.Visible = true end
+    end
 end)
 
--- Auto Detect Window State
+-- Auto Detect Logic: Mendeteksi status minimize menu utama
 task.spawn(function()
-    while task.wait(0.5) do
-        if Window.Root and Window.Root.Visible == false then
-            if not MiniUI.Enabled then MiniUI.Enabled = true end
-        else
-            MiniUI.Enabled = false
+    while task.wait(0.3) do
+        if Window.Root then
+            local MainFrame = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
+            -- Cek apakah root atau main frame sedang disembunyikan
+            local isHidden = (Window.Root.Visible == false) or (MainFrame and MainFrame.Visible == false)
+            
+            if isHidden then
+                if not MiniUI.Enabled then MiniUI.Enabled = true end
+            else
+                if MiniUI.Enabled then MiniUI.Enabled = false end
+            end
         end
     end
 end)
@@ -106,17 +126,19 @@ local function LoadModule(FileName, TabObject)
                     moduleInit(TabObject, Fluent, Window)
                 end
             end)
-            if not moduleStatus then warn("Error in " .. FileName .. ": " .. tostring(moduleErr)) end
+            if not moduleStatus then warn("Error in module " .. FileName .. ": " .. tostring(moduleErr)) end
         else
             warn("Syntax Error in " .. FileName .. ": " .. tostring(err))
         end
+    else
+        warn("Gagal mendownload modul: " .. FileName)
     end
 end
 
 -- [[ 6. DASHBOARD INFO ]]
 Tabs.Dashboard:AddParagraph({
-    Title = "WELCOME TO RHDXP HUB",
-    Content = "User: " .. game.Players.LocalPlayer.DisplayName .. "\nStatus: Premium / Free\n\nFollow TikTok: @RHDXP7"
+    Title = "RHDXP HUB ONLINE",
+    Content = "Halo, " .. game.Players.LocalPlayer.DisplayName .. "!\n\nTekan tombol 'End' untuk Minimize menu.\nKlik logo RHDXP yang muncul di layar untuk membuka kembali menu utama."
 })
 
 -- [[ 7. INITIALIZE ALL MODULES ]]
@@ -129,5 +151,9 @@ task.spawn(function()
     LoadModule("Misc", Tabs.Misc)
     
     Window:SelectTab(1)
-    Fluent:Notify({ Title = "RHDXP HUB", Content = "Semua modul berhasil dimuat!", Duration = 5 })
+    Fluent:Notify({
+        Title = "RHDXP HUB",
+        Content = "Script berhasil dimuat sepenuhnya!",
+        Duration = 5
+    })
 end)
