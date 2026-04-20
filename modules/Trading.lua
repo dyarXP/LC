@@ -4,46 +4,9 @@ return function(Tab, Fluent, Window)
     local LocalPlayer = Players.LocalPlayer
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-    -- [[ 1. FUNGSI PENCARI REMOTE AMAN ]]
-    local function GetGiftingRemote()
-        local success, result = pcall(function()
-            local index = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index")
-            for _, v in ipairs(index:GetChildren()) do
-                if v.Name:find("knit") then
-                    local s = v:FindFirstChild("knit") and v.knit:FindFirstChild("Services")
-                    if s then
-                        local gift = s:FindFirstChild("GiftingService") or s:FindFirstChild("TradeService")
-                        if gift and gift:FindFirstChild("RF") then
-                            return gift.RF:FindFirstChild("GiftBrainrot") or gift.RF:FindFirstChild("SendGift")
-                        end
-                    end
-                end
-            end
-        end)
-        return success and result or nil
-    end
-
-    -- [[ 2. FUNGSI PENCARI DATA PLAYER AMAN ]]
-    local function GetPlayerData()
-        local success, data = pcall(function()
-            -- Mencoba mengambil dari Global Variable atau Require manual
-            local RC = _G.ReplicaController
-            if not RC then
-                for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-                    if v.Name == "ReplicaController" and v:IsA("ModuleScript") then
-                        RC = require(v)
-                        break
-                    end
-                end
-            end
-            return RC and RC.GetPlayerData and RC:GetPlayerData()
-        end)
-        return success and data or nil
-    end
-
+    -- [[ 1. BUAT UI DULU (AGAR TIDAK KOSONG) ]]
     local TradingSection = Tab:AddSection("Gifting System")
 
-    -- [[ 3. UI COMPONENTS ]]
     local PlayerDropdown = Tab:AddDropdown("TradeTarget", { 
         Title = "Select Target Player", 
         Values = {"None"}, 
@@ -52,15 +15,37 @@ return function(Tab, Fluent, Window)
     })
 
     local ItemDropdown = Tab:AddDropdown("TradeItems", { 
-        Title = "Select Items to Gift", 
+        Title = "Select Items to Gift (Auto Update)", 
         Values = {"None"}, 
         Multi = true, 
         Default = {}, 
     })
 
+    local SendBtn = Tab:AddButton({
+        Title = "SEND SELECTED ITEMS",
+        Description = "Kirim item yang dipilih ke pemain target",
+        Callback = function()
+            -- Logic Send akan kita panggil di bawah
+        end
+    })
+
+    -- [[ 2. LOGIC PENCARIAN DATA (DIISOLASI AGAR TIDAK CRASH) ]]
     _G.InvMapping = {}
 
-    -- Loop Update List Pemain
+    -- Fungsi Cari Remote
+    local function GetGiftRemote()
+        local r = pcall(function()
+            local index = ReplicatedStorage:FindFirstChild("Packages"):FindFirstChild("_Index")
+            for _, v in ipairs(index:GetChildren()) do
+                if v.Name:find("knit") then
+                    return v.knit.Services.GiftingService.RF:FindFirstChild("GiftBrainrot")
+                end
+            end
+        end)
+        return r and _G.GiftRemote or nil
+    end
+
+    -- Loop Update Player
     task.spawn(function()
         while true do
             local pList = {"None"}
@@ -72,25 +57,39 @@ return function(Tab, Fluent, Window)
         end
     end)
 
-    -- Loop Update List Item (Paling Rawan Error - Dibungkus Pcall)
+    -- Loop Update Inventory (Safe Mode)
     task.spawn(function()
         while true do
             local invList = {}
             local displayNames = {}
             
-            local data = GetPlayerData()
-            if data and data.Inventory then
-                for uuid, item in pairs(data.Inventory) do
-                    pcall(function()
-                        local inner = item.innerEntity
-                        if inner and inner.brainrotType then
-                            local name = string.format("[%s] Lvl.%s (%s)", tostring(inner.brainrotType):upper(), tostring(inner.level or 1), uuid:sub(1,5))
-                            invList[name] = uuid
-                            table.insert(displayNames, name)
+            local success, err = pcall(function()
+                -- Cari ReplicaController secara paksa
+                local RC = _G.ReplicaController
+                if not RC then
+                    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+                        if v.Name == "ReplicaController" and v:IsA("ModuleScript") then
+                            RC = require(v)
+                            _G.ReplicaController = RC
+                            break
                         end
-                    end)
+                    end
                 end
-            end
+
+                if RC then
+                    local data = RC:GetPlayerData()
+                    if data and data.Inventory then
+                        for uuid, item in pairs(data.Inventory) do
+                            local inner = item.innerEntity
+                            if inner and inner.brainrotType then
+                                local name = string.format("[%s] Lvl.%s (%s)", tostring(inner.brainrotType):upper(), tostring(inner.level or 1), uuid:sub(1,5))
+                                invList[name] = uuid
+                                table.insert(displayNames, name)
+                            end
+                        end
+                    end
+                end
+            end)
 
             if #displayNames == 0 then table.insert(displayNames, "None") end
             
@@ -98,39 +97,35 @@ return function(Tab, Fluent, Window)
                 ItemDropdown:SetValues(displayNames)
                 _G.InvMapping = invList
             end)
-            task.wait(5)
+            task.wait(7)
         end
     end)
 
-    -- Tombol Kirim
-    Tab:AddButton({
-        Title = "SEND SELECTED ITEMS",
-        Callback = function()
-            local targetName = Options.TradeTarget.Value
-            local selectedItems = Options.TradeItems.Value
-            local targetP = Players:FindFirstChild(targetName)
-            local remote = GetGiftingRemote()
+    -- [[ 3. UPDATE CALLBACK TOMBOL ]]
+    SendBtn.Callback = function()
+        local targetName = Options.TradeTarget.Value
+        local selectedItems = Options.TradeItems.Value
+        local targetP = Players:FindFirstChild(targetName)
+        
+        -- Cari remote saat tombol diklik
+        local remote = GetGiftRemote()
 
-            if not remote then 
-                return Fluent:Notify({Title = "Error", Content = "Remote tidak ditemukan!", Duration = 3}) 
-            end
-
-            if not targetP or targetName == "None" then 
-                return Fluent:Notify({Title = "Error", Content = "Pilih pemain dulu!", Duration = 3}) 
-            end
-
-            local hasSelection = false
-            for _, v in pairs(selectedItems) do if v then hasSelection = true break end end
-            if not hasSelection then return end
-
-            for displayName, isSelected in pairs(selectedItems) do
-                if isSelected and _G.InvMapping[displayName] then
-                    local uuid = _G.InvMapping[displayName]
-                    pcall(function() remote:InvokeServer(uuid, targetP) end)
-                    task.wait(0.3)
-                end
-            end
-            Fluent:Notify({Title = "Success", Content = "Transfer Selesai!", Duration = 5})
+        if not remote then 
+            return Fluent:Notify({Title = "Error", Content = "Gifting Remote tidak ditemukan!", Duration = 3}) 
         end
-    })
+
+        if not targetP or targetName == "None" then 
+            return Fluent:Notify({Title = "Error", Content = "Pilih player target dulu!", Duration = 3}) 
+        end
+
+        for displayName, isSelected in pairs(selectedItems) do
+            if isSelected and _G.InvMapping[displayName] then
+                pcall(function() 
+                    remote:InvokeServer(_G.InvMapping[displayName], targetP) 
+                end)
+                task.wait(0.3)
+            end
+        end
+        Fluent:Notify({Title = "Success", Content = "Proses Gifting Selesai!", Duration = 5})
+    end
 end
