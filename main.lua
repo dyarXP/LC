@@ -1,4 +1,4 @@
--- [[ RHDXP HUB - FULL INTEGRATED LOADER ]]
+-- [[ RHDXP HUB - FINAL STABLE INTEGRATION ]]
 local Username = "dyarXP" 
 local Repo = "LC" 
 local Branch = "main"
@@ -15,10 +15,10 @@ local Window = Fluent:CreateWindow({
     Size = UDim2.fromOffset(600, 480),
     Acrylic = true,
     Theme = "Rose", 
-    MinimizeKey = Enum.KeyCode.End -- Tombol 'End' untuk sembunyikan GUI
+    MinimizeKey = Enum.KeyCode.End -- Tombol keyboard untuk minimize
 })
 
--- [[ 2. LOGO MINIMIZE SYSTEM (DRAGGABLE) ]]
+-- [[ 2. LOGO MINIMIZE SYSTEM (DRAGGABLE & SMART DETECT) ]]
 local MiniUI = Instance.new("ScreenGui")
 local MiniButton = Instance.new("TextButton")
 local UIStroke = Instance.new("UIStroke")
@@ -26,14 +26,14 @@ local UICorner = Instance.new("UICorner")
 
 MiniUI.Name = "RHDXP_Minimize"
 MiniUI.Parent = (gethui or function() return game:GetService("CoreGui") end)()
-MiniUI.Enabled = false -- Sembunyi di awal (karena GUI utama terbuka)
+MiniUI.Enabled = false 
 MiniUI.DisplayOrder = 999
 
 MiniButton.Name = "FloatingIcon"
 MiniButton.Parent = MiniUI
 MiniButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 MiniButton.Position = UDim2.new(0.05, 0, 0.4, 0)
-MiniButton.Size = UDim2.new(0, 65, 0, 30)
+MiniButton.Size = UDim2.new(0, 70, 0, 30)
 MiniButton.Text = "RHDXP"
 MiniButton.TextColor3 = Color3.fromRGB(0, 255, 255)
 MiniButton.Font = Enum.Font.Code
@@ -45,7 +45,7 @@ UIStroke.Parent = MiniButton
 UICorner.CornerRadius = UDim.new(0, 6)
 UICorner.Parent = MiniButton
 
--- Fungsi Drag (Agar logo bisa digeser)
+-- Fungsi Drag agar logo bisa digeser di layar
 local dragging, dragStart, startPos
 MiniButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -65,24 +65,27 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Klik logo untuk memunculkan GUI utama kembali
+-- Klik Logo untuk Buka Kembali GUI Utama
 MiniButton.MouseButton1Click:Connect(function() 
     if Window then 
-        Window:Minimize() -- Memanggil fungsi toggle Fluent
+        Window:Minimize() 
     end 
 end)
 
--- LOGIKA OTOMATIS: Munculkan logo jika GUI utama Minimize
+-- Logika Deteksi: Munculkan logo jika GUI utama sembunyi atau di luar layar
 task.spawn(function()
     while task.wait(0.5) do
-        if Window and Window.Root then
-            -- Fluent menyembunyikan frame 'Main' saat Minimize ditekan
-            local MainFrame = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
-            if MainFrame then
-                -- Jika GUI utama sembunyi (Visible = false), Logo RHDXP Muncul (Enabled = true)
-                MiniUI.Enabled = not MainFrame.Visible
+        local isVisible = false
+        pcall(function()
+            if Window and Window.Root then
+                local Main = Window.Root:FindFirstChild("Main") or Window.Root:FindFirstChildOfClass("Frame")
+                -- Fluent memindahkan GUI ke Y > 2000 saat diminimize
+                if Main and Main.Visible == true and Main.AbsolutePosition.Y < 2000 then
+                    isVisible = true
+                end
             end
-        end
+        end)
+        MiniUI.Enabled = not isVisible
     end
 end)
 
@@ -97,13 +100,13 @@ local Tabs = {
     Misc      = Window:AddTab({ Title = "MISC", Icon = "settings" })
 }
 
--- [[ 4. DASHBOARD ]]
+-- [[ 4. DASHBOARD CONTENT ]]
 Tabs.Dashboard:AddParagraph({
     Title = "WELCOME TO RHDXP HUB",
-    Content = "Halo, " .. game.Players.LocalPlayer.DisplayName .. "!\nScript berjalan optimal.\n\nTikTok: @RHDXP7"
+    Content = "Halo, " .. game.Players.LocalPlayer.DisplayName .. "!\nScript berhasil dimuat secara modular.\n\nTikTok: @RHDXP7"
 })
 
--- [[ 5. MODULE LOADER ]]
+-- [[ 5. MODULE LOADER ENGINE ]]
 local function LoadModule(FileName, TabObject)
     local targetURL = BaseURL .. "modules/" .. FileName .. ".lua"
     local success, content = pcall(function() return game:HttpGet(targetURL) end)
@@ -120,13 +123,18 @@ local function LoadModule(FileName, TabObject)
                 end)
                 if not s then warn("Error Modul [" .. FileName .. "]: " .. e) end
             end)
+        else
+            warn("Syntax Error [" .. FileName .. "]: " .. err)
         end
+    else
+        warn("Gagal download: " .. FileName)
     end
 end
 
 -- [[ 6. EXECUTE LOADING ]]
 task.spawn(function()
     task.wait(1)
+    -- Pastikan nama file di GitHub sama persis (Case Sensitive)
     LoadModule("Automation", Tabs.Farm)
     LoadModule("Upgrades", Tabs.Upgrades)
     LoadModule("Sell", Tabs.Sell)
@@ -134,7 +142,7 @@ task.spawn(function()
     LoadModule("Events", Tabs.Events)
     LoadModule("Misc", Tabs.Misc)
     
-    Fluent:Notify({Title = "RHDXP HUB", Content = "Semua modul siap!", Duration = 5})
+    Fluent:Notify({Title = "RHDXP HUB", Content = "Semua modul berhasil dimuat!", Duration = 5})
 end)
 
 Window:SelectTab(1)
