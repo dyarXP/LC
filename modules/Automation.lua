@@ -25,7 +25,7 @@ return function(Tab, Fluent, Window)
     Tab:AddSection("Farming System")
 
     -- 1. Auto Claim Playtime
-    Tab:AddToggle("AutoClaimPlaytime", { Title = "Auto Claim Playtime Rewards", Default = true })
+    Tab:AddToggle("AutoClaimPlaytime", { Title = "Auto Claim Playtime Rewards", Default = false })
     task.spawn(function()
         while task.wait(10) do
             if Options.AutoClaimPlaytime and Options.AutoClaimPlaytime.Value then
