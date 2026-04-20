@@ -1,6 +1,6 @@
--- [[ RHDXP HUB - LC VERSION ]]
+-- [[ RHDXP HUB - MASTER LOADER ]]
 local Username = "dyarXP" 
-local Repo = "LC" -- Nama repository baru kamu
+local Repo = "LC" 
 local Branch = "main"
 local BaseURL = "https://raw.githubusercontent.com/"..Username.."/"..Repo.."/"..Branch.."/"
 
@@ -8,7 +8,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 
 local Window = Fluent:CreateWindow({
     Title = "RHDXP HUB",
-    SubTitle = "Be A Lucky Block (LC Edition)",
+    SubTitle = "Be A Lucky Block",
     TabWidth = 170,
     Size = UDim2.fromOffset(600, 480),
     Acrylic = true,
@@ -16,29 +16,36 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.End
 })
 
--- Bagian Tabs dan Loader tetap sama
 local Tabs = {
     Dashboard = Window:AddTab({ Title = "DASHBOARD", Icon = "layout-grid" }),
     Farm = Window:AddTab({ Title = "AUTOMATION", Icon = "cpu" }),
     Events = Window:AddTab({ Title = "EVENTS", Icon = "calendar" }),
-    Upgrades = Window:AddTab({ Title = "UPGRADES", Icon = "trending-up" }),
     Sell = Window:AddTab({ Title = "AUTO SELL", Icon = "dollar-sign" }),
     Misc = Window:AddTab({ Title = "MISC", Icon = "settings" })
 }
 
+-- Fungsi Loader yang lebih kuat
 local function LoadModule(FileName, TabObject)
-    local success, moduleFunc = pcall(function()
-        -- Link ini akan otomatis mengambil dari dyarXP/LC/main/modules/FileName.lua
-        return loadstring(game:HttpGet(BaseURL .. "modules/" .. FileName .. ".lua"))()
-    end)
-    if success and type(moduleFunc) == "function" then
-        moduleFunc(TabObject, Fluent, Window)
+    local targetURL = BaseURL .. "modules/" .. FileName .. ".lua"
+    local success, content = pcall(function() return game:HttpGet(targetURL) end)
+
+    if success then
+        local func, err = loadstring(content)
+        if func then
+            -- Menjalankan fungsi yang di-return oleh module
+            local status, moduleErr = pcall(function()
+                func()(TabObject, Fluent, Window)
+            end)
+            if not status then warn("Runtime Error di " .. FileName .. ": " .. tostring(moduleErr)) end
+        else
+            warn("Syntax Error di " .. FileName .. ": " .. tostring(err))
+        end
     else
-        warn("RHDXP Error: Module " .. FileName .. " tidak ditemukan di repo LC")
+        warn("Gagal mendownload module: " .. FileName)
     end
 end
 
--- Menjalankan Loading Modul
+-- Load semua modul
 task.spawn(function()
     LoadModule("Automation", Tabs.Farm)
     LoadModule("Events", Tabs.Events)
@@ -46,5 +53,5 @@ task.spawn(function()
     LoadModule("Misc", Tabs.Misc)
     
     Window:SelectTab(1)
-    Fluent:Notify({ Title = "RHDXP HUB", Content = "Loaded from LC Repository", Duration = 5 })
+    Fluent:Notify({ Title = "RHDXP HUB", Content = "Semua fitur telah dimuat!", Duration = 5 })
 end)
